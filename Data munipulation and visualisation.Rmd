@@ -1,0 +1,261 @@
+---
+title: "Assignment 1"
+author: "Zac Young"
+date: "2023-08-26"
+output:
+  
+  html_document: default
+    
+  pdf_document: default
+  word_document: default
+---
+1) Problem statement
+
+This study will be looking at some crime data from NSW from the years of 1993 to 2012 the data will be focusing on the amount of offences and a dashboard will show on a graph the average amount of offences per year as well as the categories with the most offences. the data will be manipulated to show the columns in the data set as well as the total average and the row with the largest count of offences. 
+
+2) Data Content 
+
+The data on a large data set surrounding crime and the dashboard will visualize the not only the offences by year but also the largest categories on a histogram.
+
+3) Tools and techniques
+
+To organize and sort the data functions such as group by mean and summarize which are all functions that are able to take certain bits of a large data set and highlight them or use the to find overall results.
+
+4) Visualizations used 
+
+On the dashboard both a bar graph and a histogram have been used to show trends in the data 
+
+5) Remarks 
+
+The data has shown that their is a very large range of the data with the average being very far away from the highest value. it also is able to show that there isn't much change from year to year however there is a clear category of crime that has the most amount of offences. 
+
+
+```{r}
+library(dplyr)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+
+CrimeData <- read.table("C:/Users/zacyo/Downloads/CrimeData.txt", header = TRUE)
+
+
+```
+
+**Doing different things to the data**
+
+*1) Finding the column names*
+
+This function section takes the top of the dataset and prints the column names that are in the text file. this is to give an idea as to what is in the large datset and makes it easier to manipulate certain columns.
+
+
+```{r crimedata}
+colnames(CrimeData)
+
+```
+*2) Checking the data format*
+
+This function head displays the first 6 rows of the dataset and is useful to display a small portion of the data to check that it seems to be making sense and the right data is in each column.
+
+
+```{r}
+head(CrimeData)
+
+```
+*3) The largest amount of offences*
+
+This function finds the largest number in the offences column so the row with the most amount of offenences and prints the entire row so the incident with the most amount of offences in the dataset is displayed.
+
+
+```{r}
+
+max_row <- CrimeData %>%
+  filter(Offences == max(Offences, na.rm = TRUE))
+max_row #shows the highest value in a certain column 
+
+```
+*4) The average amount of offences*
+
+This function looks at the offences column and calcualtes the avergae amount of offences across the whole dataset.
+
+
+```{r}
+
+offences <- CrimeData$Offences
+
+# Exclude 0 values from the calculation
+non_zero <- offences[offences != 0]
+
+# take the average of all the non zero values as well as excluding all teh N/A entries 
+Avg_row <- mean(non_zero, na.rm = TRUE)
+
+
+message <- paste("The average amount of", "offences", "is", Avg_row)
+cat(message, "\n")
+
+
+
+```
+*5) The average amount of offences per year*
+
+As well as finding the overall average i wanted to be able to see the average amount of offences each year. this function groups the data by the year it happened and then finds the average of the offences column and groups them together 
+
+
+```{r}
+
+calculate_avg_offences_by_year <- function(CrimeData) {
+  avg_offences_by_year <- CrimeData %>%
+    group_by(YearOfOffence) %>%       #grouping by year of offences so every year is capturing from 1995 - 2012
+    summarise(avg_offences = mean(Offences[Offences != 0], na.rm = TRUE))
+  return(avg_offences_by_year)
+}
+
+# Calculate average offences per year and print the result
+avg_offences_by_year <- calculate_avg_offences_by_year(CrimeData)
+print(avg_offences_by_year)
+
+```
+*6) Highest categories of crime*
+
+This function looks at the category column it then groups by each type of crime and counts how many entries are in that category giving a list of the most frequent type of crime in descending order
+
+
+```{r}
+
+
+
+count_groups <- function(CrimeData, Category ) {
+  result <- CrimeData %>%
+    group_by({{ Category }}) %>%
+    summarise(count = n()) %>%
+    arrange(desc(count))
+  
+  return(result)
+}
+
+
+grouped_counts <- count_groups(CrimeData, Category)
+print(grouped_counts)
+
+```
+**The dashboard**
+---
+title: "Crime Data Analysis Dashboard"
+output: shiny::shiny_document
+---
+
+```{r}
+library(shiny)
+library(dplyr)
+library(ggplot2)
+
+CrimeData <- read.table("C:/Users/zacyo/Downloads/CrimeData.txt", header = TRUE)
+
+
+
+ui <- fluidPage(
+  titlePanel("Assignment 1 Dashboard"),
+  tabsetPanel(
+    tabPanel(
+      "Overview",
+      
+      HTML("<h2>Preview of Dataset</h2>"),  # Big heading           #Head of data set showing preview
+      tableOutput("head_output"),
+      hr(),
+      
+      HTML("<h2>Average offences each year</h2>"),  
+      tableOutput("mean_offences"),                               # avergae offences each year 
+      plotOutput("offences_histogram"),
+      hr(),
+      
+      HTML("<h2>Most Frequent Crime Categories</h2>"),            # frequency of each offence 
+      #tableOutput("grouped_counts_output"),
+      plotOutput("grouped_counts_histogram"),
+      hr(),
+      
+    ),
+    
+    # adding tab panel creates a different page on the dashboard to put the data in table form to keep grpahson the front page
+  tabPanel(
+    "Average offences data",
+    HTML("<h2>Average amount of offences per year</h2>"),
+    tableOutput("avg_offences_output"), 
+    
+    ),
+  tabPanel(
+    "Most frequent crimes data",
+    HTML("<h2>Most frequent crimes in the dataset</h2>"),
+    tableOutput("grouped_counts_output"),
+  )
+  )
+)
+
+
+
+server <- function(input, output) {
+  
+  #data summary
+  output$head_output <- renderTable({
+    
+    head(CrimeData)
+    
+  })
+
+  #avg offences per year table
+  output$avg_offences_output <- renderTable({
+    
+    avg_offences_by_year <- calculate_avg_offences_by_year(CrimeData)
+    avg_offences_by_year
+    
+  })
+
+  #Avg offences per year plot
+  output$offences_histogram <- renderPlot({
+    
+    offences_by_year <- calculate_avg_offences_by_year(CrimeData)
+
+    ggplot(offences_by_year, aes(x = YearOfOffence, y = avg_offences)) +
+      geom_bar(stat = "identity", fill = "blue") +
+      labs(title = "Average Offences by Year",
+           x = "Year of Offence",
+           y = "Average Offences") +
+      theme_minimal()
+    
+  })
+
+  #Crime categories table
+  output$grouped_counts_output <- renderTable({
+    
+    grouped_counts <- CrimeData %>%
+      group_by(Category) %>%
+      summarise(count = n()) %>%
+      arrange(desc(count))
+    grouped_counts
+    
+    
+  })
+  #Crime categories plot
+  output$grouped_counts_histogram <- renderPlot({
+    grouped_counts <- CrimeData %>%
+      group_by(Category) %>%
+      summarise(count = n()) %>%
+      arrange(desc(count))
+
+    ggplot(grouped_counts, aes(x = reorder(Category, -count), y = count)) +
+      geom_bar(stat = "identity", fill = "blue") +
+      labs(title = "Distribution of Crime Categories",
+           x = "Crime Category",
+           y = "Count") +
+      scale_y_continuous(labels = scales::comma) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  })
+    
+
+}
+  
+
+
+shinyApp(ui, server)
+
+```
+
